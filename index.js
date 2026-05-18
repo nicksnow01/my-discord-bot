@@ -186,32 +186,39 @@ client.on('messageCreate', async (message) => {
         return message.reply(`⏳ Your extra VIP time: **${formatTime(user.vip_expires)}**`);
     }
 
-    // FOUNDER COMMANDS
-    if (message.author.id === FOUNDER_ID) {
-        if (message.content.startsWith('!addpoints')) {
-            const target = message.mentions.users.first();
-            const amount = parseInt(message.content.split(' ')[2]);
+ // FOUNDER COMMANDS
+if (message.author.id === FOUNDER_ID) {
 
-            if (!target || !amount) {
-                return message.reply('❌ Usage: `!addpoints @user 10`');
-            }
+    // ADD POINTS
+    if (message.content.startsWith('!addpoints')) {
+        const target = message.mentions.users.first();
+        const args = message.content.trim().split(/\s+/);
+        const amount = Number(args[2]);
 
-            addPoints(target.id, amount);
-            return message.reply(`✅ Added **${amount}** points to ${target}.`);
+        if (!target || !Number.isInteger(amount) || amount <= 0) {
+            return message.reply('❌ Usage: `!addpoints @user 1`');
         }
 
-        if (message.content.startsWith('!removepoints')) {
-            const target = message.mentions.users.first();
-            const amount = parseInt(message.content.split(' ')[2]);
+        addPoints(target.id, amount);
 
-            if (!target || !amount) {
-                return message.reply('❌ Usage: `!removepoints @user 10`');
-            }
-
-            removePoints(target.id, amount);
-            return message.reply(`✅ Removed **${amount}** points from ${target}.`);
-        }
+        return message.reply(`✅ Added **${amount}** point(s) to ${target}.`);
     }
+
+    // REMOVE POINTS
+    if (message.content.startsWith('!removepoints')) {
+        const target = message.mentions.users.first();
+        const args = message.content.trim().split(/\s+/);
+        const amount = Number(args[2]);
+
+        if (!target || !Number.isInteger(amount) || amount <= 0) {
+            return message.reply('❌ Usage: `!removepoints @user 1`');
+        }
+
+        removePoints(target.id, amount);
+
+        return message.reply(`✅ Removed **${amount}** point(s) from ${target}.`);
+    }
+}
 
     // REDEEM COMMAND
     if (message.content.startsWith('!redeem')) {
