@@ -1,4 +1,4 @@
- require('dotenv').config();
+require('dotenv').config();
 
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const Database = require('better-sqlite3');
@@ -10,7 +10,9 @@ CREATE TABLE IF NOT EXISTS users (
     user_id TEXT PRIMARY KEY,
     points INTEGER DEFAULT 0,
     lifetime_earned INTEGER DEFAULT 0,
-    vip_expires INTEGER DEFAULT 0
+    vip_expires INTEGER DEFAULT 0,
+    daily_date TEXT DEFAULT '',
+    daily_count INTEGER DEFAULT 0
 )
 `).run();
 
@@ -28,7 +30,10 @@ const LIFETIME_ROLE_NAME = 'VIP GODS (LIFETIME ACCESS)';
 const PNL_CHANNEL = '🏆-vip-wins';
 const REDEEM_CHANNEL = '🎁-redeem-vip';
 
+const FOUNDER_ID = '857632329220096030';
+
 const POINTS_PER_DAY = 5;
+const MAX_DAILY_PNL_POINTS = 2;
 const ONE_DAY = 24 * 60 * 60 * 1000;
 
 function getUser(userId) {
@@ -36,8 +41,8 @@ function getUser(userId) {
 
     if (!user) {
         db.prepare(`
-            INSERT INTO users (user_id, points, lifetime_earned, vip_expires)
-            VALUES (?, 0, 0, 0)
+            INSERT INTO users (user_id, points, lifetime_earned, vip_expires, daily_date, daily_count)
+            VALUES (?, 0, 0, 0, '', 0)
         `).run(userId);
 
         user = db.prepare('SELECT * FROM users WHERE user_id = ?').get(userId);
@@ -59,7 +64,7 @@ function removePoints(userId, amount) {
     getUser(userId);
     db.prepare(`
         UPDATE users
-        SET points = points - ?
+        SET points = MAX(points - ?, 0)
         WHERE user_id = ?
     `).run(amount, userId);
 }
@@ -93,6 +98,37 @@ function formatTime(ms) {
     return `${days} days, ${hours} hours`;
 }
 
+function getToday() {
+    return new Date().toISOString().split('T')[0];
+}
+
+function canEarnDailyPoint(userId) {
+    const user = getUser(userId);
+    const today = getToday();
+
+    if (user.daily_date !== today) {
+        db.prepare(`
+            UPDATE users
+            SET daily_date = ?, daily_count = 0
+            WHERE user_id = ?
+        `).run(today, userId);
+
+        return true;
+    }
+
+    return user.daily_count < MAX_DAILY_PNL_POINTS;
+}
+
+function addDailyCount(userId) {
+    const today = getToday();
+
+    db.prepare(`
+        UPDATE users
+        SET daily_date = ?, daily_count = daily_count + 1
+        WHERE user_id = ?
+    `).run(today, userId);
+}
+
 client.once('clientReady', () => {
     console.log(`✅ Logged in as ${client.user.tag}`);
 });
@@ -115,10 +151,32 @@ client.on('messageCreate', async (message) => {
         return message.reply({ embeds: [embed] });
     }
 
+    // LEADERBOARD
+    if (message.content === '!lb') {
+        const topUsers = db.prepare(`
+            SELECT * FROM users
+            ORDER BY points DESC
+            LIMIT 10
+        `).all();
+
+        let leaderboard = '';
+
+        topUsers.forEach((user, index) => {
+            const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`;
+            leaderboard += `${medal} <@${user.user_id}> — **${user.points}** points\n`;
+        });
+
+        const embed = new EmbedBuilder()
+            .setColor('Gold')
+            .setTitle('🏆 Alpha Rewards Leaderboard')
+            .setDescription(leaderboard || 'No points yet.');
+
+        return message.reply({ embeds: [embed] });
+    }
+
     // VIP TIME CHECK
     if (message.content === '!viptime') {
         const user = getUser(message.author.id);
-
         const hasLifetime = member.roles.cache.some(role => role.name === LIFETIME_ROLE_NAME);
 
         if (hasLifetime) {
@@ -126,6 +184,33 @@ client.on('messageCreate', async (message) => {
         }
 
         return message.reply(`⏳ Your extra VIP time: **${formatTime(user.vip_expires)}**`);
+    }
+
+    // FOUNDER COMMANDS
+    if (message.author.id === FOUNDER_ID) {
+        if (message.content.startsWith('!addpoints')) {
+            const target = message.mentions.users.first();
+            const amount = parseInt(message.content.split(' ')[2]);
+
+            if (!target || !amount) {
+                return message.reply('❌ Usage: `!addpoints @user 10`');
+            }
+
+            addPoints(target.id, amount);
+            return message.reply(`✅ Added **${amount}** points to ${target}.`);
+        }
+
+        if (message.content.startsWith('!removepoints')) {
+            const target = message.mentions.users.first();
+            const amount = parseInt(message.content.split(' ')[2]);
+
+            if (!target || !amount) {
+                return message.reply('❌ Usage: `!removepoints @user 10`');
+            }
+
+            removePoints(target.id, amount);
+            return message.reply(`✅ Removed **${amount}** points from ${target}.`);
+        }
     }
 
     // REDEEM COMMAND
@@ -193,6 +278,11 @@ client.on('messageCreate', async (message) => {
 
     if (!hasImage) return;
 
+    if (!canEarnDailyPoint(message.author.id)) {
+        return message.reply('❌ Daily limit reached. Max **2 rewarded PNLs per day**.');
+    }
+
+    addDailyCount(message.author.id);
     addPoints(message.author.id, 1);
 
     const user = getUser(message.author.id);
@@ -203,7 +293,8 @@ client.on('messageCreate', async (message) => {
         .setDescription(
             `+1 Point awarded to ${message.author}\n\n` +
             `💎 Current Balance\n${user.points} points\n\n` +
-            `📈 Total Earned\n${user.lifetime_earned} points`
+            `📈 Total Earned\n${user.lifetime_earned} points\n\n` +
+            `⏳ Daily Rewards\n${user.daily_count + 1}/${MAX_DAILY_PNL_POINTS}`
         );
 
     message.reply({ embeds: [embed] });
