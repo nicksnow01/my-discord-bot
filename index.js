@@ -299,7 +299,7 @@ const embed = new EmbedBuilder()
     .setTitle('🎉 PNL Detected!')
     .setDescription(
         `+1 Point awarded to ${message.author}\n\n` +
-        `Use command \`/redeem\` in #${REDEEM_CHANNEL} to redeem your points!`
+        `Use command \`/redeem\` in <#1505969314006827119> to redeem your points!`
     );
 
     message.reply({ embeds: [embed] });
