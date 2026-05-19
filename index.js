@@ -306,7 +306,106 @@ if (message.author.id === FOUNDER_ID) {
 
     message.reply({ embeds: [embed] });
 });
+client.on('interactionCreate', async (interaction) => {
+    if (!interaction.isChatInputCommand()) return;
 
+    const member = interaction.member;
+
+    if (interaction.commandName === 'points') {
+        const targetUser = interaction.options.getUser('user') || interaction.user;
+        const user = getUser(targetUser.id);
+
+        const embed = new EmbedBuilder()
+            .setColor('Blue')
+            .setTitle('💎 Points Balance')
+            .setDescription(`${targetUser} has **${user.points}** points.`);
+
+        return interaction.reply({ embeds: [embed] });
+    }
+
+    if (interaction.commandName === 'lb') {
+        const topUsers = db.prepare(`
+            SELECT * FROM users
+            ORDER BY points DESC
+            LIMIT 10
+        `).all();
+
+        let leaderboard = '';
+
+        topUsers.forEach((user, index) => {
+            const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`;
+            leaderboard += `${medal} <@${user.user_id}> — **${user.points}** points\n`;
+        });
+
+        const embed = new EmbedBuilder()
+            .setColor('Gold')
+            .setTitle('🏆 Alpha Rewards Leaderboard')
+            .setDescription(leaderboard || 'No points yet.');
+
+        return interaction.reply({ embeds: [embed] });
+    }
+
+    if (interaction.commandName === 'viptime') {
+        const user = getUser(interaction.user.id);
+        const hasLifetime = member.roles.cache.some(role => role.name === LIFETIME_ROLE_NAME);
+
+        if (hasLifetime) {
+            return interaction.reply('👑 You have **Lifetime VIP Access**.');
+        }
+
+        return interaction.reply(`⏳ Your extra VIP time: **${formatTime(user.vip_expires)}**`);
+    }
+
+    if (interaction.commandName === 'redeem') {
+        if (interaction.channel.name !== REDEEM_CHANNEL) {
+            return interaction.reply(`❌ Use this command in #${REDEEM_CHANNEL}`);
+        }
+
+        const hasLifetime = member.roles.cache.some(role => role.name === LIFETIME_ROLE_NAME);
+
+        if (hasLifetime) {
+            return interaction.reply('👑 You already have **Lifetime VIP Access**. No need to redeem.');
+        }
+
+        const amount = interaction.options.getInteger('points');
+
+        if (!amount || amount < POINTS_PER_DAY) {
+            return interaction.reply(`❌ Use: **/redeem points:5**\n5 points = 1 extra VIP day.`);
+        }
+
+        if (amount % POINTS_PER_DAY !== 0) {
+            return interaction.reply('❌ You can only redeem multiples of 5 points. Example: **5**, **10**, **25**');
+        }
+
+        const user = getUser(interaction.user.id);
+
+        if (user.points < amount) {
+            return interaction.reply(`❌ You only have **${user.points}** points.`);
+        }
+
+        const days = amount / POINTS_PER_DAY;
+        removePoints(interaction.user.id, amount);
+
+        const vipRole = interaction.guild.roles.cache.find(role => role.name === VIP_ROLE_NAME);
+
+        if (vipRole && !member.roles.cache.has(vipRole.id)) {
+            await member.roles.add(vipRole);
+        }
+
+        const newExpiry = addVipDays(interaction.user.id, days);
+
+        const embed = new EmbedBuilder()
+            .setColor('Gold')
+            .setTitle('🔥 VIP Time Redeemed')
+            .setDescription(
+                `${interaction.user} spent **${amount} points**\n\n` +
+                `💎 Reward\n+${days} extra VIP day(s)\n\n` +
+                `⏳ Extra VIP Time Remaining\n${formatTime(newExpiry)}`
+            );
+
+        return interaction.reply({ embeds: [embed] });
+    }
+});
 // AUTO REMOVE EXPIRED VIP EVERY 10 MINUTES
 setInterval(async () => {
     const expiredUsers = db.prepare(`
