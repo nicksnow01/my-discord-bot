@@ -294,15 +294,13 @@ if (message.author.id === FOUNDER_ID) {
 
     const user = getUser(message.author.id);
 
-    const embed = new EmbedBuilder()
-        .setColor('Green')
-        .setTitle('💰 PNL Confirmed')
-        .setDescription(
-            `+1 Point awarded to ${message.author}\n\n` +
-            `💎 Current Balance\n${user.points} points\n\n` +
-            `📈 Total Earned\n${user.lifetime_earned} points\n\n` +
-            `⏳ Daily Rewards\n${user.daily_count + 1}/${MAX_DAILY_PNL_POINTS}`
-        );
+const embed = new EmbedBuilder()
+    .setColor('Green')
+    .setTitle('🎉 PNL Detected!')
+    .setDescription(
+        `+1 Point awarded to ${message.author}\n\n` +
+        `Use command \`/redeem\` in #${REDEEM_CHANNEL} to redeem your points!`
+    );
 
     message.reply({ embeds: [embed] });
 });
