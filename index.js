@@ -135,6 +135,55 @@ client.once('clientReady', () => {
 
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
+    // HELPER AUTO-REPLY SYSTEM
+const UPGRADE_CHANNEL_ID = '1465118480788488300';
+const TICKET_CHANNEL_ID = '1465131377019060432';
+
+if (!global.helperCooldown) {
+    global.helperCooldown = new Set();
+}
+
+if (!global.helperCooldown.has(message.author.id)) {
+    const msg = message.content.toLowerCase();
+
+    if (msg.includes('help') || msg.includes('ticket')) {
+        global.helperCooldown.add(message.author.id);
+
+        const embed = new EmbedBuilder()
+            .setColor('Blue')
+            .setTitle('Need Help?')
+            .setDescription(`Open a ticket here: <#${TICKET_CHANNEL_ID}>`);
+
+        message.reply({ embeds: [embed] });
+
+        setTimeout(() => global.helperCooldown.delete(message.author.id), 60 * 1000);
+        return;
+    }
+
+    if (
+        msg.includes('upgrade') ||
+        msg.includes('vip') ||
+        msg.includes('buy vip') ||
+        msg.includes('how to upgrade') ||
+        msg.includes('how to join vip') ||
+        msg.includes('teach') ||
+        msg.includes('learn')
+    ) {
+        global.helperCooldown.add(message.author.id);
+
+        const embed = new EmbedBuilder()
+            .setColor('Gold')
+            .setTitle('Ready To Upgrade?')
+            .setDescription(
+                `If you want to learn memecoins, improve your trading, and access VIP, upgrade here: <#${UPGRADE_CHANNEL_ID}>`
+            );
+
+        message.reply({ embeds: [embed] });
+
+        setTimeout(() => global.helperCooldown.delete(message.author.id), 60 * 1000);
+        return;
+    }
+}
 
     const member = message.member;
 
