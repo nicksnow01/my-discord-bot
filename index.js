@@ -135,55 +135,35 @@ client.once('clientReady', () => {
 
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
+
     // HELPER AUTO-REPLY SYSTEM
-const UPGRADE_CHANNEL_ID = '1465118480788488300';
-const TICKET_CHANNEL_ID = '1465131377019060432';
+    const UPGRADE_CHANNEL_ID = '1465118480788488300';
+    const VIP_ROLE_ID = '1465123134758719528';
 
-if (!global.helperCooldown) {
-    global.helperCooldown = new Set();
-}
-
-if (!global.helperCooldown.has(message.author.id)) {
-    const msg = message.content.toLowerCase();
-
-    if (msg.includes('help') || msg.includes('ticket')) {
-        global.helperCooldown.add(message.author.id);
-
-        const embed = new EmbedBuilder()
-            .setColor('Blue')
-            .setTitle('Need Help?')
-            .setDescription(`Open a ticket here: <#${TICKET_CHANNEL_ID}>`);
-
-        message.reply({ embeds: [embed] });
-
-        setTimeout(() => global.helperCooldown.delete(message.author.id), 60 * 1000);
-        return;
+    if (!global.helperCooldown) {
+        global.helperCooldown = new Set();
     }
 
-    if (
-        msg.includes('upgrade') ||
-        msg.includes('vip') ||
-        msg.includes('buy vip') ||
-        msg.includes('how to upgrade') ||
-        msg.includes('how to join vip') ||
-        msg.includes('teach') ||
-        msg.includes('learn')
-    ) {
-        global.helperCooldown.add(message.author.id);
+    const hasVipRole = message.member.roles.cache.has(VIP_ROLE_ID);
 
-        const embed = new EmbedBuilder()
-            .setColor('Gold')
-            .setTitle('Ready To Upgrade?')
-            .setDescription(
-                `If you want to learn memecoins, improve your trading, and access VIP, upgrade here: <#${UPGRADE_CHANNEL_ID}>`
-            );
+    if (!hasVipRole && !global.helperCooldown.has(message.author.id)) {
+        const msg = message.content.toLowerCase();
 
-        message.reply({ embeds: [embed] });
+        if (
+            msg.includes('upgrade') ||
+            msg.includes('vip') ||
+            msg.includes('buy vip') ||
+            msg.includes('how to upgrade') ||
+            msg.includes('how to join vip')
+        ) {
+            global.helperCooldown.add(message.author.id);
 
-        setTimeout(() => global.helperCooldown.delete(message.author.id), 60 * 1000);
-        return;
+            message.reply(`Buy VIP here: <#${UPGRADE_CHANNEL_ID}>`);
+
+            setTimeout(() => global.helperCooldown.delete(message.author.id), 60 * 1000);
+            return;
+        }
     }
-}
 
     const member = message.member;
 
@@ -235,39 +215,39 @@ if (!global.helperCooldown.has(message.author.id)) {
         return message.reply(`⏳ Your extra VIP time: **${formatTime(user.vip_expires)}**`);
     }
 
- // FOUNDER COMMANDS
-if (message.author.id === FOUNDER_ID) {
+    // FOUNDER COMMANDS
+    if (message.author.id === FOUNDER_ID) {
 
-    // ADD POINTS
-    if (message.content.startsWith('!addpoints')) {
-        const target = message.mentions.users.first();
-        const args = message.content.trim().split(/\s+/);
-        const amount = Number(args[2]);
+        // ADD POINTS
+        if (message.content.startsWith('!addpoints')) {
+            const target = message.mentions.users.first();
+            const args = message.content.trim().split(/\s+/);
+            const amount = Number(args[2]);
 
-        if (!target || !Number.isInteger(amount) || amount <= 0) {
-            return message.reply('❌ Usage: `!addpoints @user 1`');
+            if (!target || !Number.isInteger(amount) || amount <= 0) {
+                return message.reply('❌ Usage: `!addpoints @user 1`');
+            }
+
+            addPoints(target.id, amount);
+
+            return message.reply(`✅ Added **${amount}** point(s) to ${target}.`);
         }
 
-        addPoints(target.id, amount);
+        // REMOVE POINTS
+        if (message.content.startsWith('!removepoints')) {
+            const target = message.mentions.users.first();
+            const args = message.content.trim().split(/\s+/);
+            const amount = Number(args[2]);
 
-        return message.reply(`✅ Added **${amount}** point(s) to ${target}.`);
-    }
+            if (!target || !Number.isInteger(amount) || amount <= 0) {
+                return message.reply('❌ Usage: `!removepoints @user 1`');
+            }
 
-    // REMOVE POINTS
-    if (message.content.startsWith('!removepoints')) {
-        const target = message.mentions.users.first();
-        const args = message.content.trim().split(/\s+/);
-        const amount = Number(args[2]);
+            removePoints(target.id, amount);
 
-        if (!target || !Number.isInteger(amount) || amount <= 0) {
-            return message.reply('❌ Usage: `!removepoints @user 1`');
+            return message.reply(`✅ Removed **${amount}** point(s) from ${target}.`);
         }
-
-        removePoints(target.id, amount);
-
-        return message.reply(`✅ Removed **${amount}** point(s) from ${target}.`);
     }
-}
 
     // REDEEM COMMAND
     if (message.content.startsWith('!redeem')) {
@@ -343,16 +323,17 @@ if (message.author.id === FOUNDER_ID) {
 
     const user = getUser(message.author.id);
 
-const embed = new EmbedBuilder()
-    .setColor('Green')
-    .setTitle('🎉 PNL Detected!')
-    .setDescription(
-        `+1 Point awarded to ${message.author}\n\n` +
-        `Use command \`/redeem\` in <#1505969314006827119> to redeem your points!`
-    );
+    const embed = new EmbedBuilder()
+        .setColor('Green')
+        .setTitle('🎉 PNL Detected!')
+        .setDescription(
+            `+1 Point awarded to ${message.author}\n\n` +
+            `Use command \`/redeem\` in <#1505969314006827119> to redeem your points!`
+        );
 
     message.reply({ embeds: [embed] });
 });
+
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
 
@@ -453,6 +434,7 @@ client.on('interactionCreate', async (interaction) => {
         return interaction.reply({ embeds: [embed] });
     }
 });
+
 // AUTO REMOVE EXPIRED VIP EVERY 10 MINUTES
 setInterval(async () => {
     const expiredUsers = db.prepare(`
